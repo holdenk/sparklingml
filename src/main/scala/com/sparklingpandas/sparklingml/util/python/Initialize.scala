@@ -5,14 +5,18 @@
  * welcome.
  */
 
-object PythonInitialized {
-  // The way how training works its done one stage at a time so no stress.
-  var ready = false;
-  var gatewayServer: Option[GatewayServer]
-  def setup(): Unit = {
-    if (!ready) {
-      ready = true
-      // This is going to get us in trouble some day.
-     }
+// Idea: implement a Python class to do serialization
+// It evaluates functionString then does wrap on function name
+// and returns the Python function.
+// This can run in a seperate Python instance and seperate call back env
+trait PythonRegisterationProvider {
+  def registerFunction(functionString, functionName): PythonFunction
+}
+
+
+object PythonRegistration {
+  val gatewayServer: GatewayServer = {
+  }
+  val pythonRegistrationProvider: PythonRegisterProvider = {
   }
 }

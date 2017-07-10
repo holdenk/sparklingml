@@ -10,10 +10,10 @@ trait EnableJython {
 }
 
 class PythonTransformer {
-  // Name of your UDF, your UDF should have performed its registration
-  // in udf_registration.py
-  val udfName: String = _
-
+  // Python function string.
+  val pythonFunctionString: String = _
+  val pythonFunctionName: String = _
   override def transform(input: DataFrame): DataFrame {
+    val pickled_command = gateway.
   }
 }

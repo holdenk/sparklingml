@@ -96,6 +96,12 @@ private[sparklingpandas] object SharedParamsCodeGen {
     val writer = new PrintWriter(file)
     writer.write(code)
     writer.close()
+
+    val testCode = genSharedParamsTests(params)
+    val testFile = "src/test/scala/com/sparklingpandas/sparklingml/param/sharedParams.scala"
+    val testWriter = new PrintWriter(testFile)
+    testWriter.write(code)
+    testWriter.close()
   }
 
   /** Description of a param. */
@@ -202,10 +208,8 @@ private[sparklingpandas] object SharedParamsCodeGen {
       |""".stripMargin
   }
 
-  /** Generates Scala source code for the input params with header. */
-  private def genSharedParams(params: Seq[ParamDesc[_]]): String = {
-    val header =
-      """/*
+  val header =
+    """/*
         | * Licensed to the Apache Software Foundation (ASF) under one or more
         | * contributor license agreements.  See the NOTICE file distributed with
         | * this work for additional information regarding copyright ownership.
@@ -231,10 +235,25 @@ private[sparklingpandas] object SharedParamsCodeGen {
         |// scalastyle:off
         |""".stripMargin
 
-    val footer = "// scalastyle:on\n"
+  val footer = "// scalastyle:on\n"
+
+  /** Generates Scala source code for the input params with header. */
+  private def genSharedParams(params: Seq[ParamDesc[_]]): String = {
 
     val traits = params.map(genHasParamTrait).mkString
 
     header + traits + footer
   }
+
+  /** Generates Scala source code for the input params with header. */
+  private def genSharedParamsTests(params: Seq[ParamDesc[_]]): String = {
+
+    val testTraitsExtends = params.map{ params =>
+      val name = param.name
+      "Has" +: name(0).toUpper +: name.substring(1)
+    }.mkString(" with ")
+
+    header + traits + footer
+  }
+
 }

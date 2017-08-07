@@ -32,6 +32,8 @@ case class InputData(input: String)
 abstract class LuceneTransformerTest[T <: LuceneTransformer[_]] extends
     FunSuite with DataFrameSuiteBase with Matchers {
 
+  override implicit def reuseContextIfPossible: Boolean = true
+
   override implicit def enableHiveSupport: Boolean = false
 
   val transformer: T
@@ -45,9 +47,6 @@ abstract class LuceneTransformerTest[T <: LuceneTransformer[_]] extends
     result.size shouldBe 3
   }
 
-  // Don't shut down the SparkContext after each test suite.
-  override def afterAll() = {
-  }
 }
 
 abstract class LuceneStopwordTransformerTest[T <: LuceneTransformer[_]] extends

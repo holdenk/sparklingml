@@ -24,12 +24,14 @@ import py4j.GatewayServer
  * registration.
  */
 trait PythonRegisterationProvider {
-  private[sparklingml] def registerFunction(session: SparkSession,
+  private[sparklingml] def registerFunction(
+    sc: SparkContext, session: SparkSession,
     functionName: String, params: String): UserDefinedPythonFunction
 }
 
 /**
  * A utility class to redirect the child process's stdout or stderr.
+ * This is copied from Spark.
  */
 private[python] class RedirectThread(
     in: InputStream,
@@ -93,7 +95,10 @@ private[python] class RedirectThread(
 object PythonRegistration {
   val pythonFile = "./python/sparklingml/startup.py"
   val pyFiles = ""
+  // TODO(holden): Use reflection to determine if we've got an existing gateway server
+  // to hijack instead.
   val gatewayServer: GatewayServer = {
+    println("Starting gatewayServer")
     // Based on PythonUtils
     def sparkPythonPath: String = {
       val pythonPath = new ArrayBuffer[String]
@@ -130,6 +135,7 @@ object PythonRegistration {
     })
     thread.setName("py4j-gateway-init")
     thread.setDaemon(true)
+    println("Gateway kicking off")
     thread.start()
 
     // Wait until the gateway server has started, so that we know which port is it bound to.
@@ -149,6 +155,7 @@ object PythonRegistration {
     // Launch Python process
     val builder = new ProcessBuilder((Seq(pythonExec, formattedPythonFile)).asJava)
     val env = builder.environment()
+    env.put("SPARKLING_ML_SPECIFIC", "YES")
     env.put("PYTHONPATH", pythonPath)
     // This is equivalent to setting the -u flag; we use it because ipython doesn't support -u:
     env.put("PYTHONUNBUFFERED", "YES") // value is needed to be set to a non-empty string
@@ -158,21 +165,35 @@ object PythonRegistration {
     env.put("PYSPARK_PYTHON", pythonExec)
     sys.env.get("PYTHONHASHSEED").foreach(env.put("PYTHONHASHSEED", _))
     builder.redirectErrorStream(true) // Ugly but needed for stdout and stderr to synchronize
-    try {
-      val process = builder.start()
+    println("Starting python process")
+    val pythonThread = new Thread(new Runnable() {
+      override def run(): Unit = {
+        try {
+          val process = builder.start()
 
-      new RedirectThread(process.getInputStream, System.out, "redirect output").start()
+          new RedirectThread(process.getInputStream, System.out, "redirect output").start()
 
-      val exitCode = process.waitFor()
-      if (exitCode != 0) {
-        throw new Exception(s"Exit code ${exitCode}")
+          val exitCode = process.waitFor()
+          if (exitCode != 0) {
+            throw new Exception(s"Exit code ${exitCode}")
+          }
+        } finally {
+          gatewayServer.shutdown()
+        }
       }
-    } finally {
-      gatewayServer.shutdown()
-    }
+    })
+    pythonThread.setName("python-udf-registrationProvider-thread")
+    pythonThread.setDaemon(true)
+    println("Starting python thread")
+    pythonThread.start()
+    println("Returning gateway server.")
+    //Thread.sleep(200000)
     gatewayServer
   }
 
-  val pythonRegistrationProvider: PythonRegisterationProvider = {
+  def register(provider: PythonRegisterationProvider) = {
+    pythonRegistrationProvider = Option(provider)
   }
+
+  var pythonRegistrationProvider: Option[PythonRegisterationProvider] = None
 }

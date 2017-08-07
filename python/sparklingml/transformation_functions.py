@@ -21,9 +21,9 @@ class StrLenPlusK(TransformationFunction):
     """
     @classmethod
     def func(cls, k):
-        """Compute the string length plus K (based on parameters)."""
         def inner(str):
+            """Compute the string length plus K (based on parameters)."""
             return len(str) + k
-    return inner
+        return inner
 
 functions_info["strlenplusk"] = StrLenPlusK

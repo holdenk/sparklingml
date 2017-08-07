@@ -1,5 +1,5 @@
-from py4j.java_gateway import JavaGateway, CallbackServerParameters
-from .transformation_functions import *
+from py4j.java_gateway import *
+from transformation_functions import *
 
 # This class is used to allow the Scala process to call into Python
 # It may not run in the same Python process as your regular Python
@@ -18,7 +18,7 @@ class PythonRegistrationProvider(object):
         if not self._session:
             self._session = SparkSession.builder.getOrCreate()
         session = self._session
-        if functions_info has functionName:
+        if functionName in functions_info:
             function_info = functions_info[functionName]
             func = function_info.func(eval(params))
             retType = func_info.type
@@ -32,7 +32,15 @@ class PythonRegistrationProvider(object):
         implements = ["com.sparklingpandas.sparklingml.util.python.PythonRegisterationProvider"]
 
 if __name__ == "__main__":
-    gateway = JavaGateway(
-        callback_server_parameters=CallbackServerParameters())
-    provider = PythonRegistrationProvider(gateway)
-    gateway.entry_point.registerListener(provider)
+    import os
+    if "SPARKLING_ML_SPECIFIC" in os.environ:
+        gateway_port = int(os.environ["PYSPARK_GATEWAY_PORT"])
+        gateway = JavaGateway(
+#            GatewayClient(port=gateway_port), callback_server_parameters=CallbackServerParameters())
+            GatewayClient(port=gateway_port))
+        provider = PythonRegistrationProvider(gateway)
+        java_import(gateway.jvm, "com.sparklingpandas.sparklingml")
+        java_import(gateway.jvm, "com.sparklingpandas.sparklingml.util.python")
+        jvm = gateway.jvm
+        pythonRegistrationObj = jvm.com.sparklingpandas.sparklinkgml.util.python.PythonRegistration
+        pythonRegistrationObj.register(provider)

@@ -6,25 +6,28 @@ package com.sparklingpandas.sparklingml.util.python
 
 import com.sparklingpandas.sparklingml.param.{HasInputCol, HasOutputCol}
 
+import scala.concurrent._
+import scala.concurrent.duration._
+
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.ml.Transformer
+import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 
 trait PythonTransformer extends Transformer with HasInputCol with HasOutputCol {
   // Name of the python function to register as a UDF
   val pythonFunctionName: String
 
   def constructUDF(session: SparkSession) = {
-    PythonRegistration.pythonRegistrationProvider match {
-      case Some(registrationProvider) =>
-        registrationProvider.registerFunction(
-          session.sparkContext,
-          session,
-          pythonFunctionName,
-          miniSerializeParams())
-      case None =>
-        throw new Exception("Registration provider does not exist")
-    }
+    val registrationProviderFuture = PythonRegistration.pythonRegistrationProvider.future
+    val registrationProvider = Await.result(registrationProviderFuture, 10 seconds)
+    val pythonUdf = Option(registrationProvider.registerFunction(
+      session.sparkContext,
+      session,
+      pythonFunctionName,
+      miniSerializeParams()))
+    pythonUdf.map(_.asInstanceOf[UserDefinedPythonFunction])
+      .getOrElse(throw new Exception("Failed register PythonFunction."))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -60,8 +63,7 @@ trait PythonTransformer extends Transformer with HasInputCol with HasOutputCol {
    * Do you need to pass some of your parameters to Python?
    * Put them in here and have them get evaluated with a lambda.
    * I know its kind of sketchy -- sorry!
+   * This should be consider temporary, unless it works.
    */
-  def miniSerializeParams(): String = {
-    ""
-  }
+  def miniSerializeParams(): String
 }

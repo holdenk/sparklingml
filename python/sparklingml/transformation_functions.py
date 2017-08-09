@@ -1,3 +1,5 @@
+from pyspark.sql.types import IntegerType
+
 functions_info = dict()
 
 class TransformationFunction(object):
@@ -25,5 +27,9 @@ class StrLenPlusK(TransformationFunction):
             """Compute the string length plus K (based on parameters)."""
             return len(str) + k
         return inner
+
+    @classmethod
+    def returnType(cls):
+        return IntegerType()
 
 functions_info["strlenplusk"] = StrLenPlusK

@@ -8,8 +8,10 @@ package com.sparklingpandas.sparklingml.util.python
 
 import java.io._
 
+import scala.concurrent.Promise
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
+import scala.util.Success
 
 import org.apache.spark.SparkContext
 import org.apache.spark.deploy.PythonRunner._
@@ -24,9 +26,11 @@ import py4j.GatewayServer
  * registration.
  */
 trait PythonRegisterationProvider {
-  private[sparklingml] def registerFunction(
-    sc: SparkContext, session: SparkSession,
-    functionName: String, params: String): UserDefinedPythonFunction
+  // Takes a SparkContext, SparkSession, String, and String
+  // Returns UserDefinedPythonFunction but types + py4j :(
+  def registerFunction(
+    sc: SparkContext, session: Object,
+    functionName: Object, params: Object): Object
 }
 
 /**
@@ -130,7 +134,7 @@ object PythonRegistration {
     val gatewayServer = new py4j.GatewayServer(null, 0)
     val thread = new Thread(new Runnable() {
       override def run(): Unit = {
-        gatewayServer.start()
+        gatewayServer.start(true)
       }
     })
     thread.setName("py4j-gateway-init")
@@ -192,8 +196,9 @@ object PythonRegistration {
   }
 
   def register(provider: PythonRegisterationProvider) = {
-    pythonRegistrationProvider = Option(provider)
+    println("JVM side registering....")
+    pythonRegistrationProvider.complete(Success(provider))
   }
 
-  var pythonRegistrationProvider: Option[PythonRegisterationProvider] = None
+  val pythonRegistrationProvider = Promise[PythonRegisterationProvider]()
 }

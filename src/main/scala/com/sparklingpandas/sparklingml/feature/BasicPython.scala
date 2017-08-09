@@ -29,4 +29,8 @@ class StrLenPlusKPython(override val uid: String) extends PythonTransformer {
   override def copy(extra: ParamMap) = {
     defaultCopy(extra)
   }
+
+  def miniSerializeParams() = {
+    "[" + $(k) + "]"
+  }
 }

@@ -20,6 +20,8 @@ setup(
         'pandas',
         'spacy',
         'future',
+        'tensorflow',
+        'tensorflowspark',
     ],
     test_requires=[
         'nose==1.3.7',

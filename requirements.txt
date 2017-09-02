@@ -8,3 +8,4 @@ unittest2>=1.0.0
 pandas>=0.13
 spacy
 future
+tensorflow

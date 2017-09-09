@@ -17,31 +17,37 @@
 
 from __future__ import unicode_literals
 
-from tensorflowonspark import run
+from tensorflowonspark.TFCluster import run
 
 from pyspark import keyword_only
-from pyspark.ml import Model
+from pyspark.ml import Estimator, Model
 from pyspark.ml.param import *
-from pyspark.ml.param.shared import HasFeatureCol, HasLabelCol
+from pyspark.ml.param.shared import HasFeaturesCol, HasLabelCol
 
-class TensorFlowSlimEstimator(Model, HashFeatureCol, HasLabelCol):
+class TensorFlowSlimEstimator(Estimator, HasFeaturesCol, HasLabelCol):
     """
     >>> tfsle = TensorFlowSlimEstimator()
-    >>> tfsle.setFeatureCol("features")
+    >>> tfsle.setFeaturesCol("features")
     >>> tfsle.setLabelCol("labels")
     >>> tfsle.fromSlim("vgg", "vgg_a", "vgg_arg_scope")
     """
+    @keyword_only
+    def __init__():
+        super(TensorFlowSlimEstimator, self).__init__()
+        kwargs = self._input_kwargs
+        self.setParams(**kwargs)
+
+    @keyword_only
+    def setParams(self):
+        kwargs = self._input_kwargs
+        return self._set(**kwargs)
+
     stepsParam = Param(
         Params._dummy(),
         "steps", "maximum number of steps",
         typeConverter=TypeConverters.toInt)
 
-    epochParam = Param(
-        Params._dummy(),
-        "epoch", "number of epochs",
-        typeConverter=TypeConverters.toInt)
-
-    argScopeParam = Params(
+    argScopeParam = Param(
         Params._dummy(),
         "argScope",
         "Defines the argscope for your model."
@@ -57,9 +63,9 @@ class TensorFlowSlimEstimator(Model, HashFeatureCol, HasLabelCol):
 
     syncReplicasParam = Param(
         Params._dummy(),
-        "syncReplicas", "if we should use the sync optimizer"
+        "syncReplicas", "if we should use the sync optimizer",
         typeConverter=TypeConverters.toBoolean)
-    
+
     def __init__(self):
         self._cluster_args = None
         self._cluster = None
@@ -73,12 +79,14 @@ class TensorFlowSlimEstimator(Model, HashFeatureCol, HasLabelCol):
         """
         if self._cluster:
             if self._cluster_params != self._generate_params():
-                self._cluster.stop()   
+                self._cluster.stop()
             else:
                 return self._cluster
         self._cluster_params = self._generate_params()
 
         sync_replicas_value = self.getSyncReplicas()
+        num_steps = self.getSteps()
+
         def map_fun(args, ctx):
             from tensorflowonspark import TFNode
             import tensorflow as tf
@@ -109,7 +117,7 @@ class TensorFlowSlimEstimator(Model, HashFeatureCol, HasLabelCol):
                 ys = numpy.array(labels)
                 ys = ys.astype(numpy.uint)
                 return (xs, ys)
-            
+
             if job_name == "ps":
                 server.join()
             elif job_name == "worker":
@@ -128,19 +136,18 @@ class TensorFlowSlimEstimator(Model, HashFeatureCol, HasLabelCol):
                             logdir,
                             master=server.target,
                             is_chief=(FLAGS.task == 0),
-                            number_of_steps=steps,
                             number_of_steps=num_steps,
                             save_interval_secs=600,
                             sync_optimizer=optimizer if sync_replicas_value else None)
-                        
-                    
+
+
     def _generate_params(self):
         """
         Generate a lit of params.
         """
-        return [self.getSteps(), self.getEpochs(), self.getNetParam()]
+        return [self.getSteps(), self.getArgScopeParam(), self.getNetParam()]
 
-    def fit(self, df):
+    def _fit(self, df):
         selected_df = df.select(
             df.col(self.getLabelCol()).cast(IntegerType()),
             self.getFeaturesCol())
@@ -159,18 +166,6 @@ class TensorFlowSlimEstimator(Model, HashFeatureCol, HasLabelCol):
         Gets the maximum number of steps.
         """
         return self.getOrDefault(self.stepsParam)
-
-    def setEpoch(self, value):
-        """
-        Sets the value of :py:attr:`epochParam`.
-        """
-        return self._set(epochParam=value)
-
-    def getEpoch(self, value):
-        """
-        Gets the numbers of epoch.
-        """
-        return self.getOrDefault(self.epochParam)
 
     def setNet(self, value):
         """
@@ -222,5 +217,3 @@ if __name__ == '__main__':
     tfse.setFeatureCol("feature")
     tfse.setLabelCol("values")
     tfse.fit(assembled)
-    
-

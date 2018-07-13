@@ -53,6 +53,9 @@ class PythonRegistrationProvider(object):
             else:
                 evaledParams = []
             func = function_info.func(*evaledParams)
+            # Special case hack for call backs, todo register elsewhere
+            if isinstance(func, BasicTransformationFunction):
+                return func
             ret_type = function_info.returnType()
             self._count = self._count + 1
             registration_name = function_name + str(self._count)

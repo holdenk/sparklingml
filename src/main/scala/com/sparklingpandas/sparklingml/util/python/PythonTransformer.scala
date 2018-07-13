@@ -71,3 +71,43 @@ trait PythonTransformer extends Transformer with HasInputCol with HasOutputCol {
    */
   def miniSerializeParams(): String
 }
+
+trait LegacyTransformFunction {
+  def transform(df: Dataset[_]): DataFrame
+}
+
+
+trait BasicPythonTransformer extends Transformer with HasInputCol with HasOutputCol {
+  // Name of the python function to register as a UDF
+  val pythonFunctionName: String
+
+  def constructCallBackFunction(session: SparkSession) = {
+    val registrationProviderFuture =
+      PythonRegistration.pythonRegistrationProvider.future
+    val registrationProvider =
+      Await.result(registrationProviderFuture, 10 seconds)
+    // Call the registration provider from startup.py to get a Python UDF back.
+    val func = Option(registrationProvider.registerFunction(
+      session.sparkContext,
+      session,
+      pythonFunctionName,
+      miniSerializeParams()))
+    val casted = func.map(_.asInstanceOf[LegacyTransformFunction])
+      .getOrElse(throw new Exception("Failed register PythonFunction."))
+    casted
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    val session = dataset.sparkSession
+    val transformFunction = constructCallBackFunction(session)
+    transformFunction.transform(dataset)
+  }
+
+  /**
+   * Do you need to pass some of your parameters to Python?
+   * Put them in here and have them get evaluated with a lambda.
+   * I know its kind of sketchy -- sorry!
+   * This should be consider temporary, unless it works.
+   */
+  def miniSerializeParams(): String
+}

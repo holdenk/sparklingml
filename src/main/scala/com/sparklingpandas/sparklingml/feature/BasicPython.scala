@@ -5,7 +5,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types._
 
 
-import com.sparklingpandas.sparklingml.util.python.PythonTransformer
+import com.sparklingpandas.sparklingml.util.python._
 
 class NltkPosPython(override val uid: String) extends PythonTransformer {
 
@@ -83,5 +83,33 @@ class SpacyTokenizePython(override val uid: String) extends PythonTransformer {
 
   def miniSerializeParams() = {
     "[\"" + $(lang) + "\"]"
+  }
+}
+
+class SDLImagePredictorPython(override val uid: String) extends BasicPythonTransformer {
+
+  final val modelName = new Param[String](this, "modelName", "model")
+
+  /** @group getParam */
+  final def getModelName: String = $(modelName)
+
+  final def setModelName(value: String): this.type = set(this.modelName, value)
+
+  def this() = this(Identifiable.randomUID("SDLImagePredictorPython"))
+
+  override val pythonFunctionName = "sdldip"
+
+  override def copy(extra: ParamMap) = {
+    defaultCopy(extra)
+  }
+
+  def miniSerializeParams() = {
+    "[\"" + $(inputCol) +"\",\"" + $(outputCol) + "\",\"" + $(modelName) + "\"]"
+  }
+
+  def transformSchema(schema: StructType) = {
+    val outputFields = schema.fields :+
+      StructField($(outputCol), DoubleType, nullable = false)
+    StructType(outputFields)
   }
 }

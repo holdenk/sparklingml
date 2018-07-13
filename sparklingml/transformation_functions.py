@@ -10,6 +10,26 @@ from pyspark.sql.functions import pandas_udf, PandasUDFType
 
 functions_info = dict()
 
+class BasicTransformationFunction(object):
+    @classmethod
+    def setup(cls, sc, session, *args):
+        """Perform any setup work (like global broadcasts)"""
+        pass
+
+    @classmethod
+    def func(cls, *args):
+        """Returns a function constructed using the args."""
+        return None
+
+class LegacyTransformationFunction(object):
+    def __init__(self, gateway):
+        self.gateway = gateway
+
+    def transform_df(self, judf):
+        return None
+
+    class Java:
+        implements = ["com.sparklingpandas.sparklingml.util.LegacyTransformFunction"]
 
 class TransformationFunction(object):
     @classmethod
@@ -211,6 +231,21 @@ class NltkPos(ScalarVectorizedTransformationFunction):
 
 functions_info["nltkpos"] = NltkPos
 
+@ignore_unicode_prefix
+class SDLImagePredictor(BasicTransformationFunction):
+
+    @classmethod
+    def func(cls, *args):
+        deepimagepredictor = DeepImagePredictor(*args)
+        class MyLegacyTransformationFunction(LegacyTransformationFunction):
+
+            def transform_df(self, jdf):
+                df = javadf_to_pydf(jdf)
+                return deepimagepredictor.transform(df)._jdf
+
+        return deepimagepredictor._transform
+            
+functions_info["sdldip"] = SparkDeepLearningDeepImagePredictor
 
 if __name__ == '__main__':
     import doctest

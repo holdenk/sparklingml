@@ -82,6 +82,11 @@ class SpacyMagic(object):
     Simple Spacy Magic to minimize loading time.
     >>> SpacyMagic.get("en")
     <spacy.lang.en.English ...
+    >>> SpacyMagic.get("non-happy-language")
+    Traceback (most recent call last):
+      ...
+    Exception: Failed to find or download language non-happy-language:...
+    >>> sc.broadcast(SpacyMagic)
     """
     _spacys = {}
 
@@ -89,8 +94,34 @@ class SpacyMagic(object):
     def get(cls, lang):
         if lang not in cls._spacys:
             import spacy
-            cls._spacys[lang] = spacy.load(lang)
+            # Hack to dynamically download languages on cluster machines, you can
+            # remove if you have the models installed and just do:
+            # cls._spacys[lang] = spacy.load(lang)
+            try:
+                old_exit = sys.exit
+                sys.exit = None
+                try:
+                    cls._spacys[lang] = spacy.load(lang)
+                except Exception:
+                    spacy.cli.download(lang)
+                    cls._spacys[lang] = spacy.load(lang)
+            except Exception as e:
+                raise Exception(
+                    "Failed to find or download language {0}: {1}"
+                    .format(lang, e))
+            finally:
+                sys.exit = old_exit
+
         return cls._spacys[lang]
+
+    def __getstate__(self):
+        """Get state, return nothing since don't want to send anything on the wire."""
+        return None
+
+    def __setstate__(self, val):
+        """Set state, do nothing."""
+        return self
+        
 
 
 class SpacyTokenize(ScalarVectorizedTransformationFunction):

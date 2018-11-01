@@ -1,5 +1,8 @@
 ![sparkling ml logo](https://raw.githubusercontent.com/sparklingpandas/sparklingml/master/imgs/sparkling_ml.png)
-[![buildstatus](https://travis-ci.org/sparklingpandas/sparklingml.svg?branch=master)](https://travis-ci.org/sparklingpandas/sparklingml)
+
+
+[![Build Status](https://travis-ci.org/sparklingpandas/sparklingml.svg?branch=master)](https://travis-ci.org/sparklingpandas/sparklingml)
+
 [![codecov.io](http://codecov.io/github/sparklingpandas/sparklingml/coverage.svg?branch=master)](http://codecov.io/github/sparklingpandas/sparklingml?branch=master)
 
 # sparklingml

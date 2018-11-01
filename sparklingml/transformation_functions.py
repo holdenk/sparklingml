@@ -75,6 +75,23 @@ class StrLenPlusK(TransformationFunction):
 
 functions_info["strlenplusk"] = StrLenPlusK
 
+NLP = None
+
+
+@ignore_unicode_prefix
+def get_spacy_magic_for(lang):
+    """
+    A function version of SpacyMagic for notebook use.
+    >>> get_spacy_magic_for("en")
+    <spacy.lang.en.English ...
+    """
+    global NLP
+    if NLP is None:
+        NLP = {}
+    if lang not in NLP:
+        NLP[lang] = spacy.load(lang)
+    return NLP[lang]
+
 
 # Spacy isn't serializable but loading it is semi-expensive
 @ignore_unicode_prefix
@@ -95,10 +112,7 @@ class SpacyMagic(object):
     <pyspark.broadcast.Broadcast ...
     """
     _spacys = {}
-    _broadcast = None
     _self = None
-    __empty_please = False
-    __lock = threading.Lock()
 
     def __new__(cls):
         """Not quite a proper singleton but I'm lazy."""
@@ -106,8 +120,9 @@ class SpacyMagic(object):
             cls._self = super(SpacyMagic, cls).__new__(cls)
         return SpacyMagic._self
 
-    def get(self, lang):
-        if lang not in self._spacys:
+    @classmethod
+    def get(cls, lang):
+        if lang not in cls._spacys:
             import spacy
             # Hack to dynamically download languages on cluster machines,
             # you can remove if you have the models installed and just do:
@@ -116,10 +131,10 @@ class SpacyMagic(object):
                 old_exit = sys.exit
                 sys.exit = None
                 try:
-                    self._spacys[lang] = spacy.load(lang)
+                    cls._spacys[lang] = spacy.load(lang)
                 except Exception:
                     spacy.cli.download(lang)
-                    self._spacys[lang] = spacy.load(lang)
+                    cls._spacys[lang] = spacy.load(lang)
             except Exception as e:
                 raise Exception(
                     "Failed to find or download language {0}: {1}"
@@ -127,33 +142,7 @@ class SpacyMagic(object):
             finally:
                 sys.exit = old_exit
 
-        return self._spacys[lang]
-
-    def broadcast(self):
-        """Broadcast self to ensure we are shared."""
-        if self._broadcast is None:
-            from pyspark.context import SparkContext
-            sc = SparkContext.getOrCreate()
-            try:
-                SpacyMagic.__lock.acquire()
-                self.__empty_please = True
-                self._broadcast = sc.broadcast(self)
-                self.__empty_please = False
-            finally:
-                SpacyMagic.__lock.release()
-        return self._broadcast
-
-    def __getstate__(self):
-        """Get state, don't serialize anything."""
-        if not self.__empty_please:
-            return self.broadcast()
-        else:
-            return None
-
-    def __setstate__(self, bcast):
-        """Set state, from the broadcast."""
-        self = bcast.value
-        self
+        return cls._spacys[lang]
 
 
 class SpacyTokenize(ScalarVectorizedTransformationFunction):
